@@ -81,24 +81,50 @@ fi
 # ─── Step 1: Collect secrets from user ──────────────────────────────────────
 print_header "🔑 Введіть API-ключі"
 
-echo -e "${YELLOW}  Отримайте Gemini API Key на: https://aistudio.google.com/${NC}"
-read -rsp "  Введіть Gemini API Key: " GEMINI_KEY
-echo ""
-if [ -z "$GEMINI_KEY" ]; then
-    print_error "Gemini API Key не може бути порожнім!"
-    exit 1
-fi
-print_step "Gemini API Key отримано"
+# Check if secrets already exist
+SECRET_API_KEY_EXISTS=false
+SECRET_TG_TOKEN_EXISTS=false
 
-echo ""
-echo -e "${YELLOW}  Створіть бота через @BotFather у Telegram${NC}"
-read -rsp "  Введіть Telegram Bot Token: " TG_TOKEN
-echo ""
-if [ -z "$TG_TOKEN" ]; then
-    print_error "Telegram Bot Token не може бути порожнім!"
-    exit 1
+if gcloud secrets versions describe latest --secret="$SECRET_API_KEY" --project="$PROJECT_ID" &>/dev/null; then
+    SECRET_API_KEY_EXISTS=true
 fi
-print_step "Telegram Bot Token отримано"
+
+if gcloud secrets versions describe latest --secret="$SECRET_TG_TOKEN" --project="$PROJECT_ID" &>/dev/null; then
+    SECRET_TG_TOKEN_EXISTS=true
+fi
+
+USE_EXISTING_SECRETS="n"
+if [ "$SECRET_API_KEY_EXISTS" = "true" ] && [ "$SECRET_TG_TOKEN_EXISTS" = "true" ]; then
+    print_info "Знайдено існуючі ключі в Secret Manager."
+    read -rp "  Використати існуючі ключі? (Y/n): " reuse_confirm
+    reuse_confirm=${reuse_confirm:-Y}
+    if [[ "$reuse_confirm" =~ ^[Yy]$ ]]; then
+        USE_EXISTING_SECRETS="y"
+    fi
+fi
+
+if [ "$USE_EXISTING_SECRETS" = "y" ]; then
+    print_step "Використовуються існуючі API-ключі з Secret Manager"
+else
+    echo -e "${YELLOW}  Отримайте Gemini API Key на: https://aistudio.google.com/${NC}"
+    read -rsp "  Введіть Gemini API Key: " GEMINI_KEY
+    echo ""
+    if [ -z "$GEMINI_KEY" ]; then
+        print_error "Gemini API Key не може бути порожнім!"
+        exit 1
+    fi
+    print_step "Gemini API Key отримано"
+
+    echo ""
+    echo -e "${YELLOW}  Створіть бота через @BotFather у Telegram${NC}"
+    read -rsp "  Введіть Telegram Bot Token: " TG_TOKEN
+    echo ""
+    if [ -z "$TG_TOKEN" ]; then
+        print_error "Telegram Bot Token не може бути порожнім!"
+        exit 1
+    fi
+    print_step "Telegram Bot Token отримано"
+fi
 
 # ─── Step 2: Enable APIs ────────────────────────────────────────────────────
 print_header "⚙️  Увімкнення API"
@@ -136,12 +162,16 @@ store_secret() {
     print_step "Секрет '$secret_name' збережено"
 }
 
-store_secret "$SECRET_API_KEY" "$GEMINI_KEY"
-store_secret "$SECRET_TG_TOKEN" "$TG_TOKEN"
-
-# Clear secrets from memory
-unset GEMINI_KEY
-unset TG_TOKEN
+if [ "$USE_EXISTING_SECRETS" != "y" ]; then
+    store_secret "$SECRET_API_KEY" "$GEMINI_KEY"
+    store_secret "$SECRET_TG_TOKEN" "$TG_TOKEN"
+    
+    # Clear secrets from memory
+    unset GEMINI_KEY
+    unset TG_TOKEN
+else
+    print_step "Ключі вже збережено в Secret Manager"
+fi
 
 # ─── Step 4: Create Service Account ────────────────────────────────────────
 print_header "👤 Налаштування сервісного акаунту"
