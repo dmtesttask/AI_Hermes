@@ -160,13 +160,32 @@ fi
 print_step "Сервісний акаунт: $SA_EMAIL"
 
 # Grant access to secrets (resource-level, minimum privileges)
+# Wait a moment for Service Account replication in IAM
+print_info "Очікування реплікації сервісного акаунту в IAM..."
+sleep 5
+
 for secret in "$SECRET_API_KEY" "$SECRET_TG_TOKEN"; do
     print_info "Надання доступу до секрету '$secret'..."
-    gcloud secrets add-iam-policy-binding "$secret" \
-        --project="$PROJECT_ID" \
-        --member="serviceAccount:${SA_EMAIL}" \
-        --role="roles/secretmanager.secretAccessor" \
-        --quiet &>/dev/null
+    
+    success=false
+    for attempt in 1 2 3; do
+        if gcloud secrets add-iam-policy-binding "$secret" \
+            --project="$PROJECT_ID" \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="roles/secretmanager.secretAccessor" \
+            --quiet >/dev/null; then
+            success=true
+            break
+        else
+            print_warning "Спроба $attempt не вдалася. Очікування реплікації IAM..."
+            sleep 5
+        fi
+    done
+
+    if [ "$success" = "false" ]; then
+        print_error "Не вдалося надати доступ до секрету '$secret' після кількох спроб."
+        exit 1
+    fi
 done
 print_step "Права доступу до секретів налаштовано (мінімальні привілеї)"
 
