@@ -139,24 +139,56 @@ Hermes Agent використовує два головні конфігурац
 
 За замовчуванням система налаштована на роботу з одним користувачем з підтвердженням через pairing code.
 
-Якщо потрібно дозволити кільком студентам працювати одночасно:
+**Варіант 1: Додати кількох студентів через pairing** (рекомендовано)
+
+Кожен студент надсилає повідомлення боту → отримує Pairing Code → викладач його підтверджує:
+```bash
+# Підключіться до ВМ
+gcloud compute ssh hermes-commission --zone=us-central1-a
+
+# Підтвердити код студента
+hermes pairing approve telegram <КОД_СТУДЕНТА>
+
+# Переглянути список підключених
+hermes pairing list
+```
+
+**Варіант 2: Відкрити доступ для конкретних студентів** (через allowlist)
 
 ```bash
 # Підключіться до ВМ
 gcloud compute ssh hermes-commission --zone=us-central1-a
 
-# 1. Розділити сесії для кожного користувача окремо
-hermes config set session.dmScope "per-channel-peer"
+# Додайте Telegram User ID студентів у .env
+sudo -u hermes bash -c 'echo "TELEGRAM_ALLOWED_USERS=123456789,987654321" >> /home/hermes/.hermes/.env'
 
-# 2. Дозволити всім користувачам писати боту без підтвердження
-hermes config set channels.telegram.dmPolicy "open"
-
-# 3. Перезапустити сервіс
+# Перезапустити сервіс
 sudo systemctl restart hermes-gateway
 ```
 
+> [!TIP]
+> Дізнатися Telegram User ID: надішліть повідомлення `@userinfobot` або `@getmyid_bot`.
+
+**Варіант 3: Відкрити доступ усім** (не рекомендовано)
+
+```bash
+# Додайте в config.yaml секцію gateway
+sudo -u hermes nano /home/hermes/.hermes/config.yaml
+```
+
+Додайте в кінець файлу:
+```yaml
+gateway:
+  platforms:
+    telegram:
+      extra:
+        unauthorized_dm_behavior: "ignore"  # Не запитувати pairing code
+```
+
+Потім перезапустіть: `sudo systemctl restart hermes-gateway`
+
 > [!WARNING]
-> Режим `dmPolicy "open"` дозволяє будь-кому в Telegram взаємодіяти з вашим ботом, що може призвести до швидкого витрачання лімітів Gemini API (RPM = 15 для безкоштовного рівня).
+> Відкритий доступ дозволяє будь-кому в Telegram взаємодіяти з вашим ботом, що може призвести до швидкого витрачання лімітів Gemini API (RPM = 15 для безкоштовного рівня).
 
 ---
 

@@ -222,7 +222,7 @@ fi
 
 # ─── Install Hermes Agent ────────────────────────────────────────────────────
 echo "[4/9] Installing Hermes Agent..."
-su - hermes -c 'curl -fsSL https://cli.inference.sh | sh'
+su - hermes -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'
 
 # Ensure hermes binary is on PATH for the hermes user
 HERMES_BIN_DIR="/home/hermes/.local/bin"
