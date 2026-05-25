@@ -436,10 +436,12 @@ systemctl start hermes-gateway
 # ─── Create convenience alias ────────────────────────────────────────────────
 cat > /etc/profile.d/hermes-alias.sh << 'ALIAS_EOF'
 # Hermes Agent convenience alias — runs commands as the hermes user
-hermes() {
-    sudo -u hermes -i hermes "$@"
-}
-export -f hermes 2>/dev/null || true
+if [ "$(id -u -n)" != "hermes" ]; then
+    hermes() {
+        sudo -u hermes -i hermes "$@"
+    }
+    export -f hermes 2>/dev/null || true
+fi
 ALIAS_EOF
 chmod +x /etc/profile.d/hermes-alias.sh
 
